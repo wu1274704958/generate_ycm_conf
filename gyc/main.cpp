@@ -14,7 +14,6 @@ std::tuple<fs::path,std::string> get_conf_ycm_path();
 
 int main()
 {
-	getchar();
 	bool exist = conf_exist();
 	std::cout << std::boolalpha << exist << std::endl;
 	try {
