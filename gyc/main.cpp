@@ -112,11 +112,11 @@ std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::pat
 	std::vector<fs::path> res;
 	if (fs::exists(dir))
 	{
-		for (auto it = dir.begin(); it != dir.end(); ++it)
+		for (auto& it: fs::directory_iterator(dir))
 		{
-			if (interest(*it))
+			if (interest(it))
 			{
-				res.push_back(*it);
+				res.push_back(it);
 			}
 		}
 	}
