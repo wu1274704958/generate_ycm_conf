@@ -3,6 +3,7 @@
 #include <fstream>
 #include <token_stream.hpp>
 #include <tuple>
+#include <vector>
 
 #define CONFIG_FILE ".gycrc"
 
@@ -12,7 +13,9 @@ using namespace token;
 bool conf_exist();
 std::tuple<fs::path,std::string> get_conf_ycm_path();
 
-int main()
+std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::path&)> interest);
+
+int main(int argc,char **argv)
 {
 	bool exist = conf_exist();
 	std::cout << std::boolalpha << exist << std::endl;
@@ -27,6 +30,18 @@ int main()
 	{
 		std::cerr << e.what() << std::endl;
 		return 0;
+	}
+	if (argc == 1)
+		return 0;
+	fs::path test(argv[1]);
+	auto chs = find_paths(test, [](const fs::path& p) {
+		return true;
+	});
+
+	for (auto& p : chs)
+	{
+		auto temp = p.generic_string();
+		std::cout << temp << std::endl;
 	}
 }
 
@@ -90,4 +105,20 @@ std::tuple<fs::path, std::string> get_conf_ycm_path()
 	{
 		throw std::runtime_error("Not found config file!");
 	}
+}
+
+std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::path&)> interest)
+{
+	std::vector<fs::path> res;
+	if (fs::exists(dir))
+	{
+		for (auto it = dir.begin(); it != dir.end(); ++it)
+		{
+			if (interest(*it))
+			{
+				res.push_back(*it);
+			}
+		}
+	}
+	return res;
 }
