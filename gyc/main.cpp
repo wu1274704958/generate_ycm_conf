@@ -181,7 +181,7 @@ std::optional<std::string> get_source_dir(fs::path root)
 		std::ifstream is(root.generic_string(), std::ios::binary);
 		TokenStream<std::ifstream> ts(std::move(is));
 		ts.analyse();
-		
+		std::cout << "get_source_dir analyse end"<<std::endl;
 		auto& s = ts.tokens;
 		std::string res;
 		for (int i = 0; i < s.size(); ++i)
