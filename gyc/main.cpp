@@ -232,7 +232,9 @@ void ycm_conf_append_include(const fs::path& ycm_path,const std::vector<std::str
 				temp_it = ts.tokens.insert(temp_it,std::move(s));
 				++temp_it;
 			}
-			ts.save(ycm_path_s, true);
+			std::ofstream os(ycm_path_s, std::ios::binary);
+			if(os)
+				ts.save(os);
 		}
 		else {
 			throw std::runtime_error("Parser failed!");
