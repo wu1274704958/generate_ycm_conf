@@ -20,6 +20,7 @@ void ycm_conf_append_include(const fs::path& ycm_path, const std::vector<std::st
 fs::path get_backup_path(const fs::path& src);
 fs::path copy_backup(const fs::path& src);
 std::optional<std::string> get_source_dir(fs::path& root);
+std::optional<std::string> get_source_dir(fs::path root);
 
 int main(int argc,char **argv)
 {
@@ -137,10 +138,58 @@ std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::pat
 	return res;
 }
 
-std::optional<std::string> get_source_dir(fs::path& root)
+std::optional<std::string> get_source_dir(fs::path root)
 {
-	root.append("");
-	return {};
+	root.append("build.make");
+	if (fs::exists(root))
+	{
+		std::ifstream is(root.generic_string(), std::ios::binary);
+		TokenStream<std::ifstream> ts(std::move(is));
+		ts.analyse();
+		
+		auto& s = ts.tokens;
+		std::string res;
+		for (int i = 0; i < s.size(); ++i)
+		{
+			if (s[i].body == "CMAKE_SOURCE_DIR")
+			{
+				if (i + 2 < s.size() && !s[i + 2].body.empty())
+					res = s[i + 2].body;
+				break;
+			}
+		}
+		if (res.empty())
+			return {};
+		else
+			return { res };
+	}else
+		return {};
+}
+
+void get_include_dirs(fs::path root,std::vector<std::string>& vs)
+{
+	root.append("DependInfo.cmake");
+	if (fs::exists(root))
+	{
+		std::ifstream is(root.generic_string(), std::ios::binary);
+		TokenStream<std::ifstream> ts(std::move(is));
+		ts.analyse();
+
+		auto& s = ts.tokens;
+		for (int i = 0; i < s.size(); ++i)
+		{
+			if (s[i].body == "set" && s[i + 1].body == "CMAKE_CXX_TARGET_INCLUDE_PATH")
+			{
+				++i;
+				while (s[i].back != ')')
+				{
+					if (s[i].per == '"' && s[i].back == '"' && !s[i].body.empty())
+						vs.push_back(std::move(s[i].body));
+					++i;
+				}
+			}
+		}
+	}
 }
 
 fs::path copy_backup(const fs::path& src)
