@@ -19,21 +19,22 @@ std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::pat
 void ycm_conf_append_include(const fs::path& ycm_path, const std::vector<std::string>& is);
 fs::path get_backup_path(const fs::path& src);
 fs::path copy_backup(const fs::path& src);
-std::optional<std::string> get_source_dir(fs::path& root);
 std::optional<std::string> get_source_dir(fs::path root);
+void get_include_dirs(fs::path root,std::vector<std::string>& vs);
 
 int main(int argc,char **argv)
 {
-	getchar();
+    if(argc == 1)
+		return -1;
 	bool exist = conf_exist();
 	std::cout << std::boolalpha << exist << std::endl;
+	fs::path ycm_path;
 	try {
 		if (exist)
 		{
 			auto [cf,str] = get_conf_ycm_path();
 			std::cout << str << std::endl;
-			std::vector<std::string> is = { "sss","asdaasd" };
-			ycm_conf_append_include(cf,is);
+			ycm_path = std::move(cf);
 		}
 	}
 	catch (std::exception e)
@@ -41,8 +42,19 @@ int main(int argc,char **argv)
 		std::cerr << e.what() << std::endl;
 		return 0;
 	}
-	if (argc == 1)
-		return 0;
+	if(ycm_path.empty() || !fs::exists(ycm_path))
+	{
+		std::cerr << "ycm path not found!";
+		return -1;
+	}
+	auto ycm_backup = get_backup_path(ycm_path);
+
+    if(fs::exists(ycm_backup))
+	{
+		fs::remove(ycm_path);
+		fs::copy(ycm_backup,ycm_path);
+	}else
+		fs::copy(ycm_path,ycm_backup);
 	fs::path root(argv[1]);
 	root.append("CMakeFiles");
 	auto chs = find_paths(root, [](const fs::path& p) {
@@ -52,12 +64,35 @@ int main(int argc,char **argv)
 		else
 			return false;
 	});
-
+	std::cout << chs.size() << std::endl;
+    std::vector<std::string> ins;
 	for (auto& p : chs)
 	{
-		auto temp = p.generic_string();
-		std::cout << temp << std::endl;
+		auto sp = get_source_dir(p);
+		if(!sp)
+		{
+		    continue;	
+		}
+		std::cout <<*sp << std::endl;
+		fs::path src(*sp);
+		std::vector<std::string> tins;
+		get_include_dirs(p,tins);
+		std::cout << tins.size() << std::endl;
+		for(auto& in:tins)
+		{
+		    fs::path inp(in);
+			if(inp.is_relative())
+			{
+				fs::path temp_src = src;
+				temp_src.append(inp.c_str());
+				ins.push_back(temp_src.generic_string());
+		    }
+			else
+				ins.push_back(in);
+		}
 	}
+	std::cout << ins.size() << std::endl;
+	ycm_conf_append_include(ycm_path,ins);
 }
 
 bool conf_exist()
