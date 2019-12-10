@@ -167,7 +167,7 @@ void ycm_conf_append_include(const fs::path& ycm_path,const std::vector<std::str
 		std::string ycm_path_s = ycm_path.generic_string();
 		std::ifstream is(ycm_path_s, std::ios::binary);
 		TokenStream<std::ifstream> ts(std::move(is));
-		ts.analyse();
+		ts.analyse(true);
 		auto insert_it = ts.tokens.end();
 		auto end_it = ts.tokens.end();
 		int insert_i = -1;
@@ -232,15 +232,6 @@ void ycm_conf_append_include(const fs::path& ycm_path,const std::vector<std::str
 				temp_it = ts.tokens.insert(temp_it,std::move(s));
 				++temp_it;
 			}
-
-			for (int i = 0; i < ts.tokens.size() - 1; ++i)
-			{
-				if (ts.tokens[i].back == '\n' && ts.tokens[i + 1].per == ' ')
-				{
-					ts.tokens[i + 1].per = '\t';
-				}
-			}
-
 			ts.save(ycm_path_s, true);
 		}
 		else {
