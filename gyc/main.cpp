@@ -4,8 +4,10 @@
 #include <token_stream.hpp>
 #include <tuple>
 #include <vector>
+#include <optional>
 
 #define CONFIG_FILE ".gycrc"
+#define BACKUP_BUFFIX ".gycbak"
 
 namespace fs = boost::filesystem;
 using namespace token;
@@ -14,9 +16,14 @@ bool conf_exist();
 std::tuple<fs::path,std::string> get_conf_ycm_path();
 
 std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::path&)> interest);
+void ycm_conf_append_include(const fs::path& ycm_path, const std::vector<std::string>& is);
+fs::path get_backup_path(const fs::path& src);
+fs::path copy_backup(const fs::path& src);
+std::optional<std::string> get_source_dir(fs::path& root);
 
 int main(int argc,char **argv)
 {
+	getchar();
 	bool exist = conf_exist();
 	std::cout << std::boolalpha << exist << std::endl;
 	try {
@@ -24,6 +31,8 @@ int main(int argc,char **argv)
 		{
 			auto [cf,str] = get_conf_ycm_path();
 			std::cout << str << std::endl;
+			std::vector<std::string> is = { "sss","asdaasd" };
+			ycm_conf_append_include(cf,is);
 		}
 	}
 	catch (std::exception e)
@@ -33,9 +42,14 @@ int main(int argc,char **argv)
 	}
 	if (argc == 1)
 		return 0;
-	fs::path test(argv[1]);
-	auto chs = find_paths(test, [](const fs::path& p) {
-		return true;
+	fs::path root(argv[1]);
+	root.append("CMakeFiles");
+	auto chs = find_paths(root, [](const fs::path& p) {
+		fs::path ex = p.extension();
+		if (ex == ".dir")
+			return true;
+		else
+			return false;
 	});
 
 	for (auto& p : chs)
@@ -121,4 +135,119 @@ std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::pat
 		}
 	}
 	return res;
+}
+
+std::optional<std::string> get_source_dir(fs::path& root)
+{
+	root.append("");
+	return {};
+}
+
+fs::path copy_backup(const fs::path& src)
+{
+	fs::path backup = get_backup_path(src);
+	fs::copy_file(src, backup);
+	return backup;
+}
+
+fs::path get_backup_path(const fs::path& src)
+{
+	fs::path backup = src.parent_path();
+	fs::path name = src.filename();
+	auto ns = name.generic_string();
+	ns += BACKUP_BUFFIX;
+	backup.append(ns);
+	return backup;
+}
+
+void ycm_conf_append_include(const fs::path& ycm_path,const std::vector<std::string>& ins)
+{
+	if (fs::exists(ycm_path))
+	{
+		std::string ycm_path_s = ycm_path.generic_string();
+		std::ifstream is(ycm_path_s, std::ios::binary);
+		TokenStream<std::ifstream> ts(std::move(is));
+		ts.analyse();
+		auto insert_it = ts.tokens.end();
+		auto end_it = ts.tokens.end();
+		int insert_i = -1;
+
+		std::vector<Token> vs;
+		vs.push_back(Token("", '[', '\n'));
+
+		bool in_flags = false;
+		for (int i = 0; i < ts.tokens.size(); ++i)
+		{
+			auto& it = ts.tokens[i];
+			if (it.body == "flags")
+			{
+				++i;
+				while (i < ts.tokens.size() && ts.tokens[i].per != '[' ) { ++i; };
+				if (i >= ts.tokens.size())
+					break;
+				insert_i = i;
+				insert_it = ts.tokens.begin() + i;
+				in_flags = true;
+			}
+			if (in_flags)
+			{
+				while (i < ts.tokens.size() && ts.tokens[i].back != ']') 
+				{
+					if ((ts.tokens[i].per == '\'' || ts.tokens[i].per == '"') &&
+						(ts.tokens[i].back == '\'' || ts.tokens[i].back == '"') &&
+						!ts.tokens[i].body.empty())
+					{
+						vs.push_back(std::move(ts.tokens[i]));
+						vs.push_back(Token("", Token::None, ','));
+						vs.push_back(Token("", Token::None, '\n'));
+					}
+					++i;
+				};
+				if (i >= ts.tokens.size())
+					break;
+				end_it = ts.tokens.begin() + (i + 1);
+				break;
+			}
+		}
+		if (insert_it != ts.tokens.end() && end_it != ts.tokens.end())
+		{
+			ts.tokens.erase(insert_it, end_it);
+
+			for (auto& s : ins)
+			{
+				vs.push_back(Token("-I", '\'', '\''));
+				vs.push_back(Token("", Token::None, ','));
+				vs.push_back(Token("", Token::None, '\n'));
+				vs.push_back(Token(s,'\'','\''));
+				vs.push_back(Token("", Token::None, ','));
+				vs.push_back(Token("", Token::None, '\n'));
+			}
+
+			vs.push_back(Token("", Token::None, ']'));
+			vs.push_back(Token("", Token::None, '\n'));
+			
+			auto temp_it = ts.tokens.begin() + insert_i;
+			for (auto& s : vs)
+			{
+				temp_it = ts.tokens.insert(temp_it,std::move(s));
+				++temp_it;
+			}
+
+			for (int i = 0; i < ts.tokens.size() - 1; ++i)
+			{
+				if (ts.tokens[i].back == '\n' && ts.tokens[i + 1].per == ' ')
+				{
+					ts.tokens[i + 1].per = '\t';
+				}
+			}
+
+			ts.save(ycm_path_s, true);
+		}
+		else {
+			throw std::runtime_error("Parser failed!");
+		}
+
+	}else{
+		throw std::runtime_error("Not exists!");
+	}
 }
