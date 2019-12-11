@@ -180,6 +180,17 @@ std::optional<std::string> get_source_dir(fs::path root)
 	{
 		std::ifstream is(root.generic_string(), std::ios::binary);
 		TokenStream<std::ifstream> ts(std::move(is));
+		bool is_notes = false;
+		ts.set_checker([&is_notes](char c)->char
+		{
+			if (c == '#')
+				is_notes = true;
+			if (is_notes && c == '\n')
+				is_notes = false;
+			if (is_notes && c == '\'')
+				c = ' ';
+			return c;
+		});
 		ts.analyse();
 		std::cout << "get_source_dir analyse end"<<std::endl;
 		auto& s = ts.tokens;
