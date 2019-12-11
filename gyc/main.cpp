@@ -5,8 +5,10 @@
 #include <tuple>
 #include <vector>
 #include <optional>
+#include <cstdio>
+#include <cstdlib>
 
-#define CONFIG_FILE ".gycrc"
+#define CONFIG_FILE_ENV_NAME "GYCRC_CONF_PATH"
 #define BACKUP_BUFFIX ".gycbak"
 
 namespace fs = boost::filesystem;
@@ -21,11 +23,10 @@ fs::path get_backup_path(const fs::path& src);
 fs::path copy_backup(const fs::path& src);
 std::optional<std::string> get_source_dir(fs::path root);
 void get_include_dirs(fs::path root,std::vector<std::string>& vs);
+bool reduction_ycm_path(fs::path& ycm_backup, fs::path& ycm_path);
 
 int main(int argc,char **argv)
 {
-    if(argc == 1)
-		return -1;
 	bool exist = conf_exist();
 	std::cout << std::boolalpha << exist << std::endl;
 	fs::path ycm_path;
@@ -47,13 +48,16 @@ int main(int argc,char **argv)
 		std::cerr << "ycm path not found!";
 		return -1;
 	}
+
 	auto ycm_backup = get_backup_path(ycm_path);
 
-    if(fs::exists(ycm_backup))
+	if (argc == 1)
 	{
-		fs::remove(ycm_path);
-		fs::copy(ycm_backup,ycm_path);
-	}else
+		reduction_ycm_path(ycm_backup, ycm_path);
+		return 0;
+	}
+
+	if(!reduction_ycm_path(ycm_backup,ycm_path))
 		fs::copy(ycm_path,ycm_backup);
 	fs::path root(argv[1]);
 	root.append("CMakeFiles");
@@ -95,15 +99,33 @@ int main(int argc,char **argv)
 	ycm_conf_append_include(ycm_path,ins);
 }
 
+fs::path get_conf_path()
+{
+	char* env = std::getenv(CONFIG_FILE_ENV_NAME);
+	if (env) return fs::path(env);
+	return fs::path();
+}
+
+bool reduction_ycm_path(fs::path & ycm_backup ,fs::path& ycm_path)
+{
+	if (fs::exists(ycm_backup))
+	{
+		fs::remove(ycm_path);
+		fs::copy(ycm_backup, ycm_path);
+		return true;
+	}
+	return false;
+}
+
 bool conf_exist()
 {
-	fs::path p(CONFIG_FILE);
+	fs::path p = get_conf_path();
 	return fs::exists(p);
 }
 
 std::tuple<fs::path, std::string> get_conf_ycm_path()
 {
-	fs::path p(CONFIG_FILE);
+	fs::path p = get_conf_path();
 	if (fs::exists(p))
 	{
 		std::ifstream is(p.c_str(),std::ios::binary);
