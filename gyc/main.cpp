@@ -219,10 +219,20 @@ std::optional<std::string> get_source_dir(fs::path root)
 		std::string res;
 		for (int i = 0; i < s.size(); ++i)
 		{
-			if (s[i].body == "CMAKE_SOURCE_DIR")
+			if (s[i].body == "CMAKE_SOURCE_DIR" && i + 2 < s.size())
 			{
-				if (i + 2 < s.size() && !s[i + 2].body.empty())
-					res = s[i + 2].body;
+				if(s[i + 1].back == ' ')
+				   ++i; 
+				++i;
+				while (i < s.size())
+				{
+				    res += s[i].per;
+					res += s[i].body;
+					if(s[i].back == '\n')
+						break;
+				    res += s[i].back;
+					++i;
+				}
 				break;
 			}
 		}
