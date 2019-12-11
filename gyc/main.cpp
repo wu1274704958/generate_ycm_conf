@@ -27,6 +27,8 @@ bool reduction_ycm_path(fs::path& ycm_backup, fs::path& ycm_path);
 
 int main(int argc,char **argv)
 {
+	get_source_dir("C:/Users/admin/Documents/WXWork/1688852237329387/Cache/File/2019-12");
+	return 0;
 	bool exist = conf_exist();
 	std::cout << std::boolalpha << exist << std::endl;
 	fs::path ycm_path;
@@ -226,11 +228,13 @@ std::optional<std::string> get_source_dir(fs::path root)
 				++i;
 				while (i < s.size())
 				{
-				    res += s[i].per;
+					if(s[i].per != Token::None)
+						res += s[i].per;
 					res += s[i].body;
 					if(s[i].back == '\n')
 						break;
-				    res += s[i].back;
+					if (s[i].back != Token::None)
+						res += s[i].back;
 					++i;
 				}
 				break;
