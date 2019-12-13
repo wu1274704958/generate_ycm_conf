@@ -11,6 +11,7 @@
 
 #define CONFIG_FILE_ENV_NAME "GYCRC_CONF_PATH"
 #define BACKUP_BUFFIX ".gycbak"
+#define INSIDE_YCM_CONF_NAME "inside_ycm.py"
 
 namespace fs = boost::filesystem;
 using namespace token;
@@ -25,6 +26,7 @@ fs::path copy_backup(const fs::path& src);
 std::optional<std::string> get_source_dir(fs::path root);
 void get_include_dirs(fs::path root,std::vector<std::string>& vs);
 bool reduction_ycm_path(fs::path& ycm_backup, fs::path& ycm_path);
+fs::path find_inside_ycm_conf_path();
 
 int main(int argc,char **argv)
 {
@@ -44,10 +46,26 @@ int main(int argc,char **argv)
 		std::cerr << e.what() << std::endl;
 		return 0;
 	}
-	if(ycm_path.empty() || !fs::exists(ycm_path))
+	if (ycm_path.empty())
 	{
-		std::cerr << "ycm path not found!";
+		std::cerr << "ycm path not found! " << std::endl;
 		return -1;
+	}
+	if(!fs::exists(ycm_path)){
+		std::cerr << "ycm path not exists!" << std::endl;
+		std::cerr << "find inside ycm config!" << std::endl;
+
+		fs::path p = find_inside_ycm_conf_path();
+		if (p.empty())
+		{
+			std::cout << "Not find inside ycm config!" << std::endl;
+			return -1;
+		}
+		else
+		{
+			std::cout << "find inside is " << p.generic_string() << std::endl;
+			fs::copy_file(p, ycm_path);
+		}
 	}
 
 	auto ycm_backup = get_backup_path(ycm_path);
@@ -373,4 +391,69 @@ void ycm_conf_append_include(const fs::path& ycm_path,const std::unordered_set<s
 	}else{
 		throw std::runtime_error("Not exists!");
 	}
+}
+
+std::tuple<bool,std::vector<fs::path>> find_paths_ex(fs::path& dir, std::function<bool(const fs::path&)> interest)
+{
+	std::vector<fs::path> res;
+	std::vector<fs::path> res_all;
+	if (fs::exists(dir))
+	{
+		for (auto& it : fs::directory_iterator(dir))
+		{
+			if (interest(it))
+			{
+				res.push_back(it);
+			}else{
+				res_all.push_back(it);
+			}
+		}
+	}
+	if (!res.empty())
+		return std::make_tuple(true, res);
+	else
+		return std::make_tuple(false, res_all);
+}
+
+fs::path find_inside_ycm_conf_path()
+{
+	int deep = 4;
+	fs::path res;
+	std::vector<fs::path> wait_ck;
+	fs::path root(".");
+	root = fs::absolute(root);
+	wait_ck.push_back(root);
+
+	auto f = [](const fs::path& t)->bool {
+		return !fs::is_directory(t) && t.filename() == INSIDE_YCM_CONF_NAME;
+	};
+
+	while (deep > 0)
+	{
+		auto p = std::move(wait_ck.back());
+		wait_ck.pop_back();
+		auto [finded, ps] = find_paths_ex(p, f);
+		if (finded)
+		{
+			res = std::move(ps[0]);
+			goto FINDED;
+		}
+		else {
+			for (auto& p : ps)
+			{
+				if (fs::is_directory(p))
+					wait_ck.push_back(std::move(p));
+			}
+		}
+		if (wait_ck.empty())
+		{
+			if (!root.has_parent_path())
+				break;
+			root = root.parent_path();
+			wait_ck.push_back(root);
+			--deep;
+		}
+	}
+	FINDED:
+	return res;
 }
