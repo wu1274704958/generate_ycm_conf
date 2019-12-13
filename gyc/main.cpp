@@ -7,6 +7,7 @@
 #include <optional>
 #include <cstdio>
 #include <cstdlib>
+#include <unordered_set>
 
 #define CONFIG_FILE_ENV_NAME "GYCRC_CONF_PATH"
 #define BACKUP_BUFFIX ".gycbak"
@@ -18,7 +19,7 @@ bool conf_exist();
 std::tuple<fs::path,std::string> get_conf_ycm_path();
 
 std::vector<fs::path> find_paths(fs::path& dir, std::function<bool(const fs::path&)> interest);
-void ycm_conf_append_include(const fs::path& ycm_path, const std::vector<std::string>& is);
+void ycm_conf_append_include(const fs::path& ycm_path, const std::unordered_set<std::string>& is);
 fs::path get_backup_path(const fs::path& src);
 fs::path copy_backup(const fs::path& src);
 std::optional<std::string> get_source_dir(fs::path root);
@@ -69,7 +70,7 @@ int main(int argc,char **argv)
 			return false;
 	});
 	std::cout << chs.size() << std::endl;
-    std::vector<std::string> ins;
+    std::unordered_set<std::string> ins;
 	for (auto& p : chs)
 	{
 		auto sp = get_source_dir(p);
@@ -89,10 +90,11 @@ int main(int argc,char **argv)
 			{
 				fs::path temp_src = src;
 				temp_src.append(inp.c_str());
-				ins.push_back(temp_src.generic_string());
+				auto tmp = temp_src.generic_string();
+				ins.insert(std::move(tmp));
 		    }
 			else
-				ins.push_back(in);
+				ins.insert(std::move(in));
 		}
 	}
 	std::cout << ins.size() << std::endl;
@@ -289,7 +291,7 @@ fs::path get_backup_path(const fs::path& src)
 	return backup;
 }
 
-void ycm_conf_append_include(const fs::path& ycm_path,const std::vector<std::string>& ins)
+void ycm_conf_append_include(const fs::path& ycm_path,const std::unordered_set<std::string>& ins)
 {
 	if (fs::exists(ycm_path))
 	{
