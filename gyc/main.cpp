@@ -70,16 +70,15 @@ int main(int argc,char **argv)
 			return false;
 	});
 	std::cout << chs.size() << std::endl;
+
+	fs::path src;
+	fs::path src_(argv[1]);
+	if (src_.is_relative())
+		src = fs::absolute(src_);
+
     std::unordered_set<std::string> ins;
 	for (auto& p : chs)
 	{
-		auto sp = get_source_dir(p);
-		if(!sp)
-		{
-		    continue;	
-		}
-		std::cout <<*sp << std::endl;
-		fs::path src(*sp);
 		std::vector<std::string> tins;
 		get_include_dirs(p,tins);
 		std::cout << tins.size() << std::endl;
